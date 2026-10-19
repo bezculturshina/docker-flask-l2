@@ -1,5 +1,6 @@
 DockerHub - https://hub.docker.com/repository/docker/bezculturshina/image-lab/tags
 
+
 docker history 
 ```
 IMAGE          CREATED             CREATED BY                                      SIZE      COMMENT
@@ -56,3 +57,75 @@ Hello from Docker! Rocket=Medium
    HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)" || exit 1
 ```
+
+
+
+Команда запуска с --read-only и проверки эндпоинтов
+```
+PS C:\Users\user\PycharmProjects\PythonProject3> docker run -d --name flask-lab --read-only `
+>>   -e ROCKET_SIZE=Big `
+>>   -e "LAB_LOGIN=$LOGIN" `
+>>   -e "LAB_TOKEN=$TOKEN" `
+>>   -e "SECRET=$SECRET" `
+>>   -p 8080:8000 `
+>>   bezculturshina/image-lab:30ee96f0
+23da4cfa5210c3bc1db4dafee4b5e9683b08a6779f439c31efc0e28d4c851376
+PS C:\Users\user\PycharmProjects\PythonProject3> curl.exe -s http://localhost:8080/
+Hello from Docker! Rocket=Big
+PS C:\Users\user\PycharmProjects\PythonProject3> curl.exe -s http://localhost:8080/health
+{"status":"ok","uptime":31.58}
+PS C:\Users\user\PycharmProjects\PythonProject3> curl.exe -s http://localhost:8080/proof
+{"login":"bezculturshina","ok":true,"proof":"0c2cff1b5223fa9df526d93e262a3e91d99f0bc378dad018e42d14e6d48156c6"}
+PS C:\Users\user\PycharmProjects\PythonProject3> docker inspect --format '{{.HostConfig.ReadonlyRootfs}}' flask-lab
+true
+PS C:\Users\user\PycharmProjects\PythonProject3> docker inspect --format '{{.State.Health.Status}}' flask-lab
+healthy
+```
+
+
+Проверка SIGTERM
+```
+PS C:\Users\user\PycharmProjects\PythonProject3> docker stop -t 10 flask-lab
+flask-lab
+PS C:\Users\user\PycharmProjects\PythonProject3> docker inspect --format '{{.State.ExitCode}}' flask-lab
+0
+PS C:\Users\user\PycharmProjects\PythonProject3> docker logs flask-lab
+ * Serving Flask app 'app'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://172.17.0.2:8000
+Press CTRL+C to quit
+127.0.0.1 - - [19/Oct/2026 17:04:22] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [19/Oct/2026 17:04:41] "GET / HTTP/1.1" 200 -
+172.17.0.1 - - [19/Oct/2026 17:04:50] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 17:04:52] "GET /health HTTP/1.1" 200 -
+172.17.0.1 - - [19/Oct/2026 17:04:59] "GET /proof HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 17:05:22] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 17:05:52] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 17:06:23] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 17:06:53] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 17:07:23] "GET /health HTTP/1.1" 200 -
+127.0.0.1 - - [19/Oct/2026 17:07:53] "GET /health HTTP/1.1" 200 -
+Shutting down...
+```
+
+Вес образа в битах:
+```
+PS C:\Users\user\PycharmProjects\PythonProject3> docker image inspect bezculturshina/image-lab:30ee96f0 --format '{{.Size}}'
+135313962
+```
+135313962 байт примерно равно 135 Мб
+<img width="2219" height="99" alt="{BC0B826A-C10D-4F47-8937-A02637301BAD}" src="https://github.com/user-attachments/assets/00fa00b1-f493-4685-b651-4dd81d118e0e" />
+
+
+Для выполнения заданий был выбран встроенный сервер Flask так как в ходе работы нужно было проводить разработку и тестирование (многоэтапная сборка, healthcheck, режим --read-only, запуск от непревилигированного пользователя, корректное завершение контейнера), для этих проверок встроенного сервера достаточно. 
+Gunicorn больше предназначен для развёртывания. Отказ от Gunicorn уменьшает количество зависимостей, что уменьшает размер итогового образа.
+
+ARG - переменная для передачи значений во время сборки образа
+ENV - переменная окружения контейнера, её значения сохраняются в образе и доступны во время работы контейнера
+LABEL - дополнительная информация, описывающая образ
+
+/proof для вывода использует переменные окружения (env)
+
